@@ -12,6 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	tmpDataDir = "/home/test/go/src/github.com/pingcap-incubator/tinykv/kv/server/kv"
+)
+
 func Set(s *standalone_storage.StandAloneStorage, cf string, key []byte, value []byte) error {
 	return s.Write(nil, []storage.Modify{
 		{
@@ -42,6 +46,8 @@ func Iter(s *standalone_storage.StandAloneStorage, cf string) (engine_util.DBIte
 
 func cleanUpTestData(conf *config.Config) error {
 	if conf != nil {
+		//clean temporary data
+		os.RemoveAll(tmpDataDir)
 		return os.RemoveAll(conf.DBPath)
 	}
 	return nil
@@ -54,10 +60,8 @@ func TestRawGet1(t *testing.T) {
 	server := NewServer(s)
 	defer cleanUpTestData(conf)
 	defer s.Stop()
-
 	cf := engine_util.CfDefault
 	Set(s, cf, []byte{99}, []byte{42})
-
 	req := &kvrpcpb.RawGetRequest{
 		Key: []byte{99},
 		Cf:  cf,
