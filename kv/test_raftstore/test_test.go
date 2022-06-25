@@ -200,8 +200,11 @@ func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash
 	done_clients := int32(0)
 	ch_partitioner := make(chan bool)
 	ch_confchange := make(chan bool)
+
+	//管道标记是否完成
 	ch_clients := make(chan bool)
 	clnts := make([]chan int, nclients)
+
 	for i := 0; i < nclients; i++ {
 		clnts[i] = make(chan int, 1)
 	}
@@ -209,6 +212,9 @@ func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash
 		// log.Printf("Iteration %v\n", i)
 		atomic.StoreInt32(&done_clients, 0)
 		atomic.StoreInt32(&done_partitioner, 0)
+
+		//每个客户端都执行func函数的内容，其中通过chan实现最终所有的客户端都完成后，才返回；
+		//下面函数就是随机发起写入put，或者scan的操作
 		go SpawnClientsAndWait(t, ch_clients, nclients, func(cli int, t *testing.T) {
 			j := 0
 			defer func() {
@@ -216,7 +222,8 @@ func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash
 			}()
 			last := ""
 			for atomic.LoadInt32(&done_clients) == 0 {
-				if (rand.Int() % 1000) < 500 {
+				// if false {
+				if (rand.Int() % 400) < 500 {
 					key := strconv.Itoa(cli) + " " + fmt.Sprintf("%08d", j)
 					value := "x " + strconv.Itoa(cli) + " " + strconv.Itoa(j) + " y"
 					// log.Infof("%d: client new put %v,%v\n", cli, key, value)
@@ -341,8 +348,17 @@ func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash
 	}
 }
 
+// - If unreliable is set, RPCs may fail.
+// - If crash is set, the servers restart after the period is over.
+// - If partitions is set, the test repartitions the network concurrently between the servers.
+// - If maxraftlog is a positive number, the count of the persistent log for Raft shouldn't exceed 2*maxraftlog.
+// - If confchangee is set, the cluster will schedule random conf change concurrently.
+// - If split is set, split region when size exceed 1024 bytes.
+// func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash bool, partitions bool, maxraftlog int, confchange bool, split bool) {
+
 func TestBasic2B(t *testing.T) {
 	// Test: one client (2B) ...
+	// SetupStackTrap("stack.log")
 	GenericTest(t, "2B", 1, false, false, false, -1, false, false)
 }
 
