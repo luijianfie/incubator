@@ -194,6 +194,7 @@ func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash
 	electionTimeout := cfg.RaftBaseTickInterval * time.Duration(cfg.RaftElectionTimeoutTicks)
 	// Wait for leader election
 	time.Sleep(2 * electionTimeout)
+	// time.Sleep(20 * electionTimeout)
 
 	done_partitioner := int32(0)
 	done_confchanger := int32(0)
@@ -217,10 +218,13 @@ func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash
 		//下面函数就是随机发起写入put，或者scan的操作
 		go SpawnClientsAndWait(t, ch_clients, nclients, func(cli int, t *testing.T) {
 			j := 0
+
 			defer func() {
 				clnts[cli] <- j
 			}()
+
 			last := ""
+
 			for atomic.LoadInt32(&done_clients) == 0 {
 				// if false {
 				if (rand.Int() % 400) < 500 {

@@ -53,6 +53,7 @@ func (r *raftLogGCTaskHandler) gcRaftLog(raftDb *badger.DB, regionId, startIdx, 
 		return 0, nil
 	}
 
+	// log.Infof("begin to gc, from %d to %d,[regionId:%d]", firstIdx, endIdx, regionId)
 	raftWb := engine_util.WriteBatch{}
 	for idx := firstIdx; idx < endIdx; idx += 1 {
 		key := meta.RaftLogKey(regionId, idx)

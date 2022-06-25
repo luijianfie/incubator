@@ -292,6 +292,7 @@ func (m *MockSchedulerClient) RegionHeartbeat(req *schedulerpb.RegionHeartbeatRe
 }
 
 func (m *MockSchedulerClient) handleHeartbeatVersion(region *metapb.Region) error {
+	// log.Infof("handle heartbeat task from region[%s,%s].", region.StartKey, region.EndKey)
 	if engine_util.ExceedEndKey(region.GetStartKey(), region.GetEndKey()) {
 		panic("start key > end key")
 	}
@@ -300,6 +301,7 @@ func (m *MockSchedulerClient) handleHeartbeatVersion(region *metapb.Region) erro
 		searchRegion, _ := m.getRegionLocked(region.GetStartKey())
 		if searchRegion == nil {
 			m.addRegionLocked(region)
+			// log.Infof("empty region scheduler add region range [%s,%s]", region.StartKey, region.EndKey)
 			return nil
 		} else {
 			if bytes.Equal(searchRegion.GetStartKey(), region.GetStartKey()) &&
@@ -311,6 +313,7 @@ func (m *MockSchedulerClient) handleHeartbeatVersion(region *metapb.Region) erro
 				if searchRegion.RegionEpoch.Version < region.RegionEpoch.Version {
 					m.removeRegionLocked(searchRegion)
 					m.addRegionLocked(region)
+					// log.Infof("old version scheduler update region")
 				}
 				return nil
 			}
@@ -318,6 +321,7 @@ func (m *MockSchedulerClient) handleHeartbeatVersion(region *metapb.Region) erro
 			if engine_util.ExceedEndKey(searchRegion.GetStartKey(), region.GetEndKey()) {
 				// No range covers [start, end) now, insert directly.
 				m.addRegionLocked(region)
+				// log.Infof("no overlap.scheduler add region range [%s,%s]", region.StartKey, region.EndKey)
 				return nil
 			} else {
 				// overlap, remove old, insert new.
@@ -327,6 +331,7 @@ func (m *MockSchedulerClient) handleHeartbeatVersion(region *metapb.Region) erro
 					return errors.New("epoch is stale")
 				}
 				m.removeRegionLocked(searchRegion)
+				// log.Infof("scheduler remove overlap region region range [%s,%s]", searchRegion.StartKey, searchRegion.EndKey)
 			}
 		}
 	}
@@ -378,6 +383,8 @@ func (m *MockSchedulerClient) handleHeartbeatConfVersion(region *metapb.Region) 
 		// update the region.
 		if m.regionsRange.ReplaceOrInsert(&regionItem{region: *region}) == nil {
 			panic("update inexistent region ")
+		} else {
+			log.Infof("scheduler update regionRange [%s,%s]", region.StartKey, region.EndKey)
 		}
 	} else {
 		MustSamePeers(searchRegion, region)
@@ -474,6 +481,7 @@ func (m *MockSchedulerClient) findRegion(key []byte) *regionItem {
 func (m *MockSchedulerClient) addRegionLocked(region *metapb.Region) {
 	m.regionsKey[region.GetId()] = region.GetStartKey()
 	m.regionsRange.ReplaceOrInsert(&regionItem{region: *region})
+	// log.Infof("scheduler add region range [%s,%s]", region.StartKey, region.EndKey)
 }
 
 func (m *MockSchedulerClient) removeRegionLocked(region *metapb.Region) {
@@ -483,6 +491,7 @@ func (m *MockSchedulerClient) removeRegionLocked(region *metapb.Region) {
 		return
 	}
 	m.regionsRange.Delete(result)
+	// log.Infof("scheduler delete region range [%s,%s]", region.StartKey, region.EndKey)
 }
 
 // Extra API for tests

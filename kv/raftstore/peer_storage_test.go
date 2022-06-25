@@ -162,6 +162,7 @@ func TestPeerStorageClearMeta(t *testing.T) {
 	assert.Equal(t, 0, getMetaKeyCount(t, peerStore))
 }
 
+//检测从存储中读取日志
 func TestPeerStorageEntries(t *testing.T) {
 	ents := []eraftpb.Entry{
 		newTestEntry(3, 3),

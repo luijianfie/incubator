@@ -46,6 +46,7 @@ func DeleteFileIfExists(path string) (bool, error) {
 func CalcCRC32(path string) (uint32, error) {
 	digest := crc32.NewIEEE()
 	f, err := os.Open(path)
+	defer f.Close()
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}

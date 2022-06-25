@@ -77,6 +77,9 @@ const (
 	// 'MessageType_MsgTimeoutNow' send from the leader to the leadership transfer target, to let
 	// the transfer target timeout immediately and start a new election.
 	MessageType_MsgTimeoutNow MessageType = 12
+
+	// add mesg type to compact log
+	MessageType_MsgCompactLog MessageType = 13
 )
 
 var MessageType_name = map[int32]string{
@@ -92,6 +95,7 @@ var MessageType_name = map[int32]string{
 	9:  "MsgHeartbeatResponse",
 	11: "MsgTransferLeader",
 	12: "MsgTimeoutNow",
+	13: "MsgCompactLog",
 }
 var MessageType_value = map[string]int32{
 	"MsgHup":                 0,
@@ -106,6 +110,7 @@ var MessageType_value = map[string]int32{
 	"MsgHeartbeatResponse":   9,
 	"MsgTransferLeader":      11,
 	"MsgTimeoutNow":          12,
+	"MsgCompactLog":          13,
 }
 
 func (x MessageType) String() string {

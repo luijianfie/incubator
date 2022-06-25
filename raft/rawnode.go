@@ -16,6 +16,7 @@ package raft
 
 import (
 	"errors"
+	"reflect"
 
 	pb "github.com/pingcap-incubator/tinykv/proto/pkg/eraftpb"
 )
@@ -68,14 +69,20 @@ type Ready struct {
 
 // RawNode is a wrapper of Raft.
 type RawNode struct {
-	Raft *Raft
+	Raft         *Raft
+	presortstate SoftState
+	prehardstate pb.HardState
 	// Your Data Here (2A).
 }
 
 // NewRawNode returns a new RawNode given configuration and a list of raft peers.
 func NewRawNode(config *Config) (*RawNode, error) {
 	// Your Code Here (2A).
-	return nil, nil
+	rn := &RawNode{Raft: newRaft(config)}
+	r := rn.Raft
+	rn.presortstate = r.getSortState()
+	rn.prehardstate = r.getHardState()
+	return rn, nil
 }
 
 // Tick advances the internal logical clock by a single tick.
@@ -141,14 +148,48 @@ func (rn *RawNode) Step(m pb.Message) error {
 }
 
 // Ready returns the current point-in-time state of this RawNode.
+// 上层
 func (rn *RawNode) Ready() Ready {
 	// Your Code Here (2A).
-	return Ready{}
+
+	r := rn.Raft
+	msgs := r.msgs
+	rd := Ready{
+		// SoftState:        &SoftState{},
+		// HardState:        pb.HardState{},
+		Entries:          r.RaftLog.unstableEntries(),
+		CommittedEntries: r.RaftLog.nextEnts(),
+		Messages:         msgs,
+	}
+	r.msgs = r.msgs[len(msgs):]
+
+	ss := r.getSortState()
+	hs := r.getHardState()
+	if !reflect.DeepEqual(hs, rn.prehardstate) {
+		rd.HardState = hs
+	}
+	if !reflect.DeepEqual(ss, rn.presortstate) {
+		rd.SoftState = &ss
+	}
+	if !IsEmptySnap(r.RaftLog.pendingSnapshot) {
+		rd.Snapshot = *r.RaftLog.pendingSnapshot
+		r.RaftLog.pendingSnapshot = nil
+	}
+
+	return rd
 }
 
 // HasReady called when RawNode user need to check if any Ready pending.
 func (rn *RawNode) HasReady() bool {
 	// Your Code Here (2A).
+	r := rn.Raft
+	if hd := r.getHardState(); !IsEmptyHardState(hd) && !isHardStateEqual(hd, rn.prehardstate) {
+		return true
+	}
+	if len(r.RaftLog.unstableEntries()) > 0 || len(r.RaftLog.nextEnts()) > 0 || len(r.msgs) > 0 {
+		return true
+	}
+
 	return false
 }
 
@@ -156,6 +197,20 @@ func (rn *RawNode) HasReady() bool {
 // last Ready results.
 func (rn *RawNode) Advance(rd Ready) {
 	// Your Code Here (2A).
+
+	// 为什么需要IsEmpty先做判断，而不直接比较是否相同？因为isEmpty代表着hardstate没有发生变化
+	// 而isHardStateEqual是指是否完成了应该进行的修改
+	if !IsEmptyHardState(rd.HardState) && !isHardStateEqual(rn.prehardstate, rd.HardState) {
+		rn.prehardstate = rd.HardState
+	}
+
+	r := rn.Raft
+	if len(rd.Entries) > 0 {
+		r.RaftLog.stabled = rd.Entries[len(rd.Entries)-1].Index
+	}
+	if len(rd.CommittedEntries) > 0 {
+		r.RaftLog.applied = rd.CommittedEntries[len(rd.CommittedEntries)-1].Index
+	}
 }
 
 // GetProgress return the the Progress of this node and its peers, if this

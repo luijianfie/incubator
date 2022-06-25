@@ -140,6 +140,7 @@ func (c *Cluster) Start() {
 }
 
 func (c *Cluster) Shutdown() {
+	log.Infof("shutdown all relative resources")
 	for _, storeID := range c.simulator.GetStoreIds() {
 		c.simulator.StopStore(storeID)
 	}
@@ -181,6 +182,7 @@ func (c *Cluster) AllocPeer(storeID uint64) *metapb.Peer {
 
 func (c *Cluster) Request(key []byte, reqs []*raft_cmdpb.Request, timeout time.Duration) (*raft_cmdpb.RaftCmdResponse, *badger.Txn) {
 	startTime := time.Now()
+	//关闭timeout的设定用于debug
 	for i := 0; i < 10 || time.Now().Sub(startTime) < timeout; i++ {
 		region := c.GetRegion(key)
 		regionID := region.GetId()
@@ -272,6 +274,7 @@ func (c *Cluster) GetRegion(key []byte) *metapb.Region {
 		// retry to get the region again.
 		SleepMS(20)
 	}
+	
 	panic(fmt.Sprintf("find no region for %s", hex.EncodeToString(key)))
 }
 

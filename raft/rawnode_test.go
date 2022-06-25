@@ -157,12 +157,16 @@ func TestRawNodeProposeAddDuplicateNode3A(t *testing.T) {
 
 // TestRawNodeStart ensures that a node can be started correctly, and can accept and commit
 // proposals.
+
+// 主要检查的是通过rawNode调用接口查看是否需要对hardstate，日志进行持久化
+// 并且检查持久化之后的信息是否进行相应的修改
 func TestRawNodeStart2AC(t *testing.T) {
 	storage := NewMemoryStorage()
 	rawNode, err := NewRawNode(newTestConfig(1, []uint64{1}, 10, 1, storage))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	rawNode.Campaign()
 	rd := rawNode.Ready()
 	storage.Append(rd.Entries)
@@ -184,6 +188,7 @@ func TestRawNodeStart2AC(t *testing.T) {
 	}
 }
 
+//非空的storage进行初始化，通过rawnode调用接口获取到的unstable日志，和待commit日志是否正确
 func TestRawNodeRestart2AC(t *testing.T) {
 	entries := []pb.Entry{
 		{Term: 1, Index: 1},

@@ -52,6 +52,7 @@ func GetMeta(engine *badger.DB, key []byte, msg proto.Message) error {
 
 func GetMetaFromTxn(txn *badger.Txn, key []byte, msg proto.Message) error {
 	item, err := txn.Get(key)
+	// log.Infof("key:%s", str)
 	if err != nil {
 		return err
 	}

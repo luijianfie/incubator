@@ -166,6 +166,7 @@ func (d *storeWorker) onRaftMessage(msg *rspb.RaftMessage) error {
 		log.Errorf("missing region epoch in raft message, ignore it. region_id:%d", regionID)
 		return nil
 	}
+
 	if msg.IsTombstone {
 		// Target tombstone peer doesn't exist, so ignore it.
 		return nil

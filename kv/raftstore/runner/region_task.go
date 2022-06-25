@@ -159,6 +159,7 @@ func getAppliedIdxTermForSnapshot(raft *badger.DB, kv *badger.Txn, regionId uint
 		}
 	}
 	return idx, term, nil
+	// return applyState.TruncatedState.Index, applyState.TruncatedState.Term, nil
 }
 
 func doSnapshot(engines *engine_util.Engines, mgr *snap.SnapManager, regionId uint64) (*eraftpb.Snapshot, error) {
@@ -166,6 +167,7 @@ func doSnapshot(engines *engine_util.Engines, mgr *snap.SnapManager, regionId ui
 
 	txn := engines.Kv.NewTransaction(false)
 
+	//modify applied index,term to truncated index,term reduce times of snapshot
 	index, term, err := getAppliedIdxTermForSnapshot(engines.Raft, txn, regionId)
 	if err != nil {
 		return nil, err

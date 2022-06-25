@@ -56,6 +56,7 @@ func (r *Raft) readMessages() []pb.Message {
 }
 
 func TestProgressLeader2AB(t *testing.T) {
+
 	r := newTestRaft(1, []uint64{1, 2}, 5, 1, NewMemoryStorage())
 	r.becomeCandidate()
 	r.becomeLeader()
@@ -125,6 +126,8 @@ func TestLeaderCycle2AA(t *testing.T) {
 // newly-elected leader does *not* have the newest (i.e. highest term)
 // log entries, and must overwrite higher-term log entries with
 // lower-term ones.
+
+//这个部分没考虑到需要进行持久化，从storage中恢复一些需要写盘的信息term,
 func TestLeaderElectionOverwriteNewerLogs2AB(t *testing.T) {
 	cfg := func(c *Config) {
 		c.peers = idsBySize(5)
@@ -153,8 +156,9 @@ func TestLeaderElectionOverwriteNewerLogs2AB(t *testing.T) {
 	// Node 1 campaigns. The election fails because a quorum of nodes
 	// know about the election that already happened at term 2. Node 1's
 	// term is pushed ahead to 2.
-	n.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
 	sm1 := n.peers[1].(*Raft)
+	n.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
+	// sm1 := n.peers[1].(*Raft)
 	if sm1.State != StateFollower {
 		t.Errorf("state = %s, want StateFollower", sm1.State)
 	}
@@ -247,6 +251,9 @@ func TestVoteFromAnyState2AA(t *testing.T) {
 	}
 }
 
+//luijianfie
+
+//这部分实验日志写入是否符合预期
 func TestLogReplication2AB(t *testing.T) {
 	tests := []struct {
 		*network
@@ -291,6 +298,7 @@ func TestLogReplication2AB(t *testing.T) {
 					ents = append(ents, e)
 				}
 			}
+
 			props := []pb.Message{}
 			for _, m := range tt.msgs {
 				if m.MsgType == pb.MessageType_MsgPropose {
@@ -440,6 +448,7 @@ func TestDuelingCandidates2AB(t *testing.T) {
 	}
 }
 
+//检查candidate遇到leader 有效append是否会退为follower
 func TestCandidateConcede2AB(t *testing.T) {
 	tt := newNetwork(nil, nil, nil)
 	tt.isolate(1)
@@ -480,6 +489,8 @@ func TestCandidateConcede2AB(t *testing.T) {
 	}
 }
 
+//20210923
+//单节点的选举的测试
 func TestSingleNodeCandidate2AA(t *testing.T) {
 	tt := newNetwork(nil)
 	tt.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
@@ -490,6 +501,7 @@ func TestSingleNodeCandidate2AA(t *testing.T) {
 	}
 }
 
+//检测是更大的term leader是否会拒绝旧term的append请求
 func TestOldMessages2AB(t *testing.T) {
 	tt := newNetwork(nil, nil, nil)
 	// make 0 leader @ term 3
@@ -521,6 +533,7 @@ func TestOldMessages2AB(t *testing.T) {
 	}
 }
 
+//检测启动和第一次写入之后，集群内的raft解决是否都是符合预期写入两个日志
 func TestProposal2AB(t *testing.T) {
 	tests := []struct {
 		*network
@@ -568,6 +581,7 @@ func TestProposal2AB(t *testing.T) {
 // 2. If an existing entry conflicts with a new one (same index but different terms),
 //    delete the existing entry and all that follow it; append any new entries not already in the log.
 // 3. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry).
+
 func TestHandleMessageType_MsgAppend2AB(t *testing.T) {
 	tests := []struct {
 		m       pb.Message
@@ -616,6 +630,7 @@ func TestHandleMessageType_MsgAppend2AB(t *testing.T) {
 	}
 }
 
+//检查各种情况下，发送心跳，节点是否正确返回
 func TestRecvMessageType_MsgRequestVote2AA(t *testing.T) {
 	msgType := pb.MessageType_MsgRequestVote
 	msgRespType := pb.MessageType_MsgRequestVoteResponse
@@ -695,6 +710,7 @@ func TestRecvMessageType_MsgRequestVote2AA(t *testing.T) {
 	}
 }
 
+//检测遇到日志更大的voterequest情况下，是否会step down
 func TestAllServerStepdown2AB(t *testing.T) {
 	tests := []struct {
 		state StateType
@@ -816,6 +832,8 @@ func testCandidateResetTerm(t *testing.T, mt pb.MessageType) {
 // to become a candidate with an increased term. Then, the
 // candiate's response to late leader heartbeat forces the leader
 // to step down.
+
+//通过控制 tick()使得candidate的term更大，随后发起选举，称为新主
 func TestDisruptiveFollower2AA(t *testing.T) {
 	n1 := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
 	n2 := newTestRaft(2, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
@@ -979,6 +997,7 @@ func TestRecvMessageType_MsgBeat2AA(t *testing.T) {
 	}
 }
 
+//检测选举成为新主之后是否为正确
 func TestLeaderIncreaseNext2AB(t *testing.T) {
 	previousEnts := []pb.Entry{{Term: 1, Index: 1}, {Term: 1, Index: 2}, {Term: 1, Index: 3}}
 	// previous entries + noop entry + propose + 1
@@ -1109,12 +1128,15 @@ func TestSlowNodeRestore2C(t *testing.T) {
 	nt.storage[1].CreateSnapshot(lead.RaftLog.applied, &pb.ConfState{Nodes: nodes(lead)}, nil)
 	nt.storage[1].Compact(lead.RaftLog.applied)
 
-	nt.recover()
+	nt.send(pb.Message{From: 1, To: 1,
+		MsgType: pb.MessageType_MsgCompactLog,
+		Index:   lead.RaftLog.applied,
+	})
 
+	nt.recover()
 	// send heartbeats so that the leader can learn everyone is active.
 	// node 3 will only be considered as active when node 1 receives a reply from it.
 	nt.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgBeat})
-
 	// trigger a snapshot
 	nt.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgPropose, Entries: []*pb.Entry{{}}})
 
@@ -1605,6 +1627,7 @@ func newNetworkWithConfig(configFunc func(*Config), peers ...stateMachine) *netw
 func (nw *network) send(msgs ...pb.Message) {
 	for len(msgs) > 0 {
 		m := msgs[0]
+		// Dprint("from:%d,to:%d,message:%s\n", m.From, m.To, m.MsgType.String())
 		p := nw.peers[m.To]
 		p.Step(m)
 		msgs = append(msgs[1:], nw.filter(p.readMessages())...)

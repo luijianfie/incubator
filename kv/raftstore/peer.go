@@ -265,6 +265,14 @@ func (p *peer) IsLeader() bool {
 }
 
 func (p *peer) Send(trans Transport, msgs []eraftpb.Message) {
+
+	// 打印发送信息
+	// log1.Printf("all msg need to send\n")
+	// for _, msg := range msgs {
+	// 	log1.Printf("send msg from %d to %d type %s\n", msg.From, msg.To, msg.MsgType)
+	// }
+	// log1.Printf("send print finished.\n")
+
 	for _, msg := range msgs {
 		err := p.sendRaftMessage(msg, trans)
 		if err != nil {
@@ -354,6 +362,7 @@ func (p *peer) HeartbeatScheduler(ch chan<- worker.Task) {
 		PendingPeers:    p.CollectPendingPeers(),
 		ApproximateSize: p.ApproximateSize,
 	}
+	// log.Infof("%s peer send region[%s,%s] heart beat task.", p.Tag, clonedRegion.StartKey, clonedRegion.EndKey)
 }
 
 func (p *peer) sendRaftMessage(msg eraftpb.Message, trans Transport) error {

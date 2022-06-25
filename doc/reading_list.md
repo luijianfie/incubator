@@ -85,9 +85,7 @@
   - Balance
     - <https://pingcap.com/blog/2017-07-20-tidbinternal3/>
 - Distributed Transactions
-  - Reading Materials
-    - Database Internals: 5. Transaction Processing and Recovery
-    - Database Internals: 13. Distributed Transactions
+  - Reading Materials    - Database Internals: 13. Distributed Transactions
   - ACID
     - <https://en.wikipedia.org/wiki/ACID>
   - Isolation (Optional)

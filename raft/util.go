@@ -127,3 +127,9 @@ func IsResponseMsg(msgt pb.MessageType) bool {
 func isHardStateEqual(a, b pb.HardState) bool {
 	return a.Term == b.Term && a.Vote == b.Vote && a.Commit == b.Commit
 }
+
+// func Dprint(format string, a ...interface{}) {
+// 	if DEBUG {
+// 		log.Printf(format, a...)
+// 	}
+// }

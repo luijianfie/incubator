@@ -110,8 +110,12 @@ func (t *MockTransport) Send(msg *raft_serverpb.RaftMessage) error {
 		io.Copy(toSnap, fromSnap)
 		toSnap.Save()
 
+		//关闭打开的snapshot
+		fromSnap.Close()
+
 		toSnapMgr.Deregister(key, snap.SnapEntryReceiving)
 		fromSnapMgr.Deregister(key, snap.SnapEntrySending)
+
 	}
 
 	router, found := t.routers[toStore]

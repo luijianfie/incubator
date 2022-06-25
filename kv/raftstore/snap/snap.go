@@ -124,6 +124,7 @@ type Snapshot interface {
 	TotalSize() uint64
 	Save() error
 	Apply(option ApplyOptions) error
+	Close()
 }
 
 // `SnapshotDeleter` is a trait for deleting snapshot.
@@ -371,6 +372,7 @@ func (s *Snap) initForBuilding() error {
 		return nil
 	}
 	file, err := os.OpenFile(s.MetaFile.TmpPath, os.O_CREATE|os.O_WRONLY, 0600)
+	// defer file.Close()
 	if err != nil {
 		return err
 	}
@@ -378,10 +380,12 @@ func (s *Snap) initForBuilding() error {
 	s.holdTmpFiles = true
 	for _, cfFile := range s.CFFiles {
 		file, err = os.OpenFile(cfFile.TmpPath, os.O_CREATE|os.O_WRONLY, 0600)
+		// defer file.Close()
 		if err != nil {
 			return err
 		}
 		cfFile.SstWriter = table.NewExternalTableBuilder(file, nil, badger.DefaultOptions.TableBuilderOptions)
+		cfFile.File = file
 	}
 	return nil
 }
@@ -392,6 +396,7 @@ func (s *Snap) readSnapshotMeta() (*rspb.SnapshotMeta, error) {
 		return nil, errors.WithStack(err)
 	}
 	file, err := os.Open(s.MetaFile.Path)
+	defer file.Close()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -472,12 +477,14 @@ func (s *Snap) saveCFFiles() error {
 		if cfFile.KVCount > 0 {
 			err := cfFile.SstWriter.Finish()
 			if err != nil {
+				cfFile.File.Close()
 				return err
 			}
 		}
 		cfFile.SstWriter.Close()
 		size, err := util.GetFileSize(cfFile.TmpPath)
 		if err != nil {
+			cfFile.File.Close()
 			return err
 		}
 		if size > 0 {
@@ -489,12 +496,14 @@ func (s *Snap) saveCFFiles() error {
 			// add size
 			atomic.AddInt64(s.SizeTrack, int64(size))
 			cfFile.Checksum, err = util.CalcCRC32(cfFile.Path)
+			cfFile.File.Close()
 			if err != nil {
 				return err
 			}
 		} else {
 			// Clean up the `tmp_path` if this cf file is empty.
 			_, err = util.DeleteFileIfExists(cfFile.TmpPath)
+			cfFile.File.Close()
 			if err != nil {
 				return err
 			}
@@ -505,6 +514,7 @@ func (s *Snap) saveCFFiles() error {
 
 func (s *Snap) saveMetaFile() error {
 	bin, err := s.MetaFile.Meta.Marshal()
+	defer s.MetaFile.File.Close()
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -633,8 +643,10 @@ func (s *Snap) Save() error {
 			// skip empty cf file.
 			continue
 		}
+		defer cfFile.File.Close()
 		// Check each cf file has been fully written, and the checksum matches.
 		if cfFile.WrittenSize != cfFile.Size {
+
 			return errors.Errorf("snapshot file %s for CF %s size mismatch, real size %d, expected %d",
 				cfFile.Path, cfFile.CF, cfFile.WrittenSize, cfFile.Size)
 		}
@@ -667,7 +679,17 @@ func (s *Snap) Save() error {
 		return errors.WithStack(err)
 	}
 	s.holdTmpFiles = false
+	s.MetaFile.File.Close()
 	return nil
+}
+
+func (s *Snap) Close() {
+	// close file
+	for _, cfFile := range s.CFFiles {
+		if cfFile.Size > 0 {
+			cfFile.File.Close()
+		}
+	}
 }
 
 func (s *Snap) Apply(opts ApplyOptions) error {

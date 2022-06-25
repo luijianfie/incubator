@@ -249,11 +249,14 @@ func (bs *Raftstore) start(
 		schedulerClient:      schedulerClient,
 		tickDriverSender:     bs.tickDriver.newRegionCh,
 	}
+
+	//读取本store的所有peers
 	regionPeers, err := bs.loadPeers()
 	if err != nil {
 		return err
 	}
 
+	//注册peers，其实就是保存了peer的结构体的映射关系
 	for _, peer := range regionPeers {
 		bs.router.register(peer)
 	}

@@ -20,7 +20,10 @@ func (cb *Callback) Done(resp *raft_cmdpb.RaftCmdResponse) {
 	if resp != nil {
 		cb.Resp = resp
 	}
-	cb.done <- struct{}{}
+	select {
+	case cb.done <- struct{}{}:
+	default:
+	}
 }
 
 func (cb *Callback) WaitResp() *raft_cmdpb.RaftCmdResponse {

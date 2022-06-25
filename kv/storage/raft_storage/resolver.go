@@ -43,15 +43,21 @@ func newResolverRunner(schedulerClient scheduler_client.Client) *resolverRunner 
 }
 
 func (r *resolverRunner) getAddr(id uint64) (string, error) {
+
+	//这里应该是地址的缓存
 	if sa, ok := r.storeAddrs[id]; ok {
 		if time.Since(sa.lastUpdate).Seconds() < storeAddressRefreshSeconds {
 			return sa.addr, nil
 		}
 	}
+
+	//通过schedulerclient，根据storeid找到store
 	store, err := r.schedulerClient.GetStore(context.TODO(), id)
 	if err != nil {
 		return "", err
 	}
+
+	//检查store的信息
 	if store.GetState() == metapb.StoreState_Tombstone {
 		return "", errors.Errorf("store %d has been removed", id)
 	}
